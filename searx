@@ -28,7 +28,7 @@ try {
 if {[info exists ::env(SEARX_ENDPOINT)]} {
     set searxEndpoint $env(SEARX_ENDPOINT)
 } {
-    vt::wr "Enviromental variable SEARX_ENDPOINT must be defined:\n\n"
+    vt::wr "Environmental variable SEARX_ENDPOINT must be defined:\n\n"
     vt::wr "    export SEARX_ENDPOINT=https://example.com/search\n\n"
     exit 1
 }
@@ -58,6 +58,8 @@ set queryArgs [list q ${query} format json]
 if {$engines != ""} {
     lappend queryArgs engines $engines
 }
+
+lappend queryArgs pageno $params(p)
 
 http::register https 443 tls::socket
 
