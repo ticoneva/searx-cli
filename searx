@@ -61,12 +61,58 @@ if {$engines != ""} {
 
 http::register https 443 tls::socket
 
-set httpToken [::http::config -urlencoding utf-8]
-set httpToken [::http::geturl "${searxEndpoint}?[::http::formatQuery {*}${queryArgs}]"]
-set reply [::json::json2dict [::http::data $httpToken]]
+::http::config -urlencoding utf-8
 
-http::cleanup $httpToken
+# Function to follow redirects up to 5 times
+proc fetch_with_redirects {url maxredirects} {
+    set originalUrl $url
+    for {set i 0} {$i < $maxredirects} {incr i} {
+        set httpToken [::http::geturl $url]
+        set status [::http::ncode $httpToken]
+        set meta [::http::meta $httpToken]
+
+        # Check for redirect
+        if {$status == 301 || $status == 302 || $status == 303 || $status == 307 || $status == 308} {
+            if {[dict exists $meta Location]} {
+                set location [dict get $meta Location]
+
+                # Handle relative URLs
+                if {[string index $location 0] eq "/"} {
+                    # Extract host from original URL
+                    if {[regexp {^(https?://[^/]+)} $originalUrl match host]} {
+                        set location "$host$location"
+                    }
+                }
+
+                ::http::cleanup $httpToken
+                set url $location
+                continue
+            }
+        }
+
+        # If not a redirect or no Location header, return the response
+        return [list $httpToken $status $url]
+    }
+
+    # Exceeded max redirects
+    error "Too many redirects"
+}
+
+lassign [fetch_with_redirects "${searxEndpoint}?[::http::formatQuery {*}${queryArgs}]" 5] httpToken httpStatus finalUrl
+
+set rawData [::http::data $httpToken]
+
+# Parse JSON response
+set reply [::json::json2dict $rawData]
+
+::http::cleanup $httpToken
 http::unregister https
+
+# Check if results exist
+if {![dict exists $reply results]} {
+    vt::wr "No results found in response\n"
+    exit 0
+}
 
 set resultN 1
 foreach result [dict get $reply results] {
