@@ -1,5 +1,8 @@
 #!/usr/bin/tclsh
 
+# Add tcllib2.0 to auto_path for json package
+lappend auto_path /opt/network/anaconda3/lib/tcllib2.0
+
 package require cmdline
 package require http
 package require tls
